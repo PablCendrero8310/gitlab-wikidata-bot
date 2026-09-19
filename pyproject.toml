@@ -1,9 +1,9 @@
 [project]
-name = "github-wikidata-bot"
+name = "gitlab-wikidata-bot"
 version = "0.4.0"
 requires-python = ">=3.14"
 license = "BSD-2-Clause-Patent"
-description = "Updates Wikidata entries using metadata from github"
+description = "Updates Wikidata entries using metadata from gitlab"
 authors = [
     { name = "konstin", email = "konstin@mailbox.org" },
     { name = "Michael Schönitzer", email = "michael@schoenitzer.de" },

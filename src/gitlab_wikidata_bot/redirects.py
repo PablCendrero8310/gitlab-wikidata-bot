@@ -6,7 +6,7 @@ from typing import ClassVar
 
 from httpx import AsyncClient, HTTPError
 
-from github_wikidata_bot.settings import cache_root
+from gitlab_wikidata_bot.settings import cache_root
 
 
 class RedirectDict:

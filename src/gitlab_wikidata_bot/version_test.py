@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from github_wikidata_bot.version import extract_version
+from gitlab_wikidata_bot.version import extract_version
 
 
 @pytest.mark.parametrize(

@@ -15,7 +15,7 @@ class Secrets:
     username: str
     bot_name: str
     password: str
-    github_oauth_token: str
+    gitlab_oauth_token: str
     sentry_dsn: str | None = None
 
     @classmethod
@@ -29,7 +29,7 @@ class Secrets:
             username=config["username"],
             bot_name=config["bot-name"],
             password=config["password"],
-            github_oauth_token=config["github-oauth-token"],
+            gitlab_oauth_token=config["gitlab-oauth-token"],
             sentry_dsn=config.get("sentry-dsn"),
         )
 

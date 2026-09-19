@@ -7,11 +7,12 @@ from random import sample
 
 from httpx import AsyncClient
 
-from github_wikidata_bot.github import GitHubClient, analyse_release, get_releases
-from github_wikidata_bot.main import logger
-from github_wikidata_bot.settings import Secrets, Settings, cache_root
-from github_wikidata_bot.sparql import cached_projects_query
-from github_wikidata_bot.wikidata_api import WikidataClient
+from gitlab_wikidata_bot.gitlab import (GitlabClient, analyse_release,
+                                        get_releases)
+from gitlab_wikidata_bot.main import logger
+from gitlab_wikidata_bot.settings import Secrets, Settings, cache_root
+from gitlab_wikidata_bot.sparql import cached_projects_query
+from gitlab_wikidata_bot.wikidata_api import WikidataClient
 
 
 def safe_sample[T](population: list[T], size: int) -> list[T]:
@@ -22,7 +23,7 @@ def safe_sample[T](population: list[T], size: int) -> list[T]:
 
 
 async def debug_version_handling(
-    github: GitHubClient,
+    github: GitlabClient,
     wikidata: WikidataClient,
     settings: Settings,
     threshold: int = 50,
@@ -39,20 +40,20 @@ async def debug_version_handling(
         repo_cache_root = (
             cache_root().joinpath(project.repo.org).joinpath(project.repo.project)
         )
-        github_releases = await get_releases(
+        gitlab_releases = await get_releases(
             project.repo, repo_cache_root, github, False
         )
         if not no_sampling:
-            github_releases = safe_sample(github_releases, size)
-        for github_release in github_releases:
-            release = analyse_release(github_release, project_info["name"])
+            gitlab_releases = safe_sample(gitlab_releases, size)
+        for gitlab_release in gitlab_releases:
+            release = analyse_release(gitlab_release, project_info["name"])
             print(
                 "{:15} | {:10} | {:20} | {:25} | {}".format(
                     release.version if release else "---",
                     release.release_type if release else "---",
-                    github_release["tag_name"],
+                    gitlab_release["tag_name"],
                     repr(project.label),
-                    github_release["name"],
+                    gitlab_release["name"],
                 )
             )
 
@@ -69,7 +70,7 @@ async def main():
     async with AsyncClient(
         timeout=settings.http_timeout, headers={"User-Agent": settings.user_agent}
     ) as client:
-        github = GitHubClient(secrets, client, settings)
+        github = GitlabClient(secrets, client, settings)
         wikidata = WikidataClient(client, secrets, settings)
         await wikidata.connect(settings)
         await debug_version_handling(

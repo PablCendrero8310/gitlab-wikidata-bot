@@ -6,9 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from github_wikidata_bot.settings import Settings
-from github_wikidata_bot.sparql import cached_projects_query, cached_sparql_query
-from github_wikidata_bot.wikidata_api import parse_filter_list
+from gitlab_wikidata_bot.settings import Settings
+from gitlab_wikidata_bot.sparql import (cached_projects_query,
+                                        cached_sparql_query)
+from gitlab_wikidata_bot.wikidata_api import parse_filter_list
 
 
 @pytest.mark.anyio
@@ -19,10 +20,10 @@ async def test_cached_sparql_query_retries_transport_errors(monkeypatch, tmp_pat
     query_dir.joinpath("test_query.rq").write_text("SELECT ?project WHERE {}")
     cache_dir = tmp_path / "cache"
 
-    monkeypatch.setattr("github_wikidata_bot.sparql.sparql_dir", lambda: query_dir)
-    monkeypatch.setattr("github_wikidata_bot.sparql.cache_root", lambda: cache_dir)
+    monkeypatch.setattr("gitlab_wikidata_bot.sparql.sparql_dir", lambda: query_dir)
+    monkeypatch.setattr("gitlab_wikidata_bot.sparql.cache_root", lambda: cache_dir)
     sleep = AsyncMock()
-    monkeypatch.setattr("github_wikidata_bot.sparql.asyncio.sleep", sleep)
+    monkeypatch.setattr("gitlab_wikidata_bot.sparql.asyncio.sleep", sleep)
 
     expected_response = [{"project": "http://www.wikidata.org/entity/Q42"}]
     wikidata = MagicMock()
@@ -73,7 +74,7 @@ async def test_denylist_excludes_project():
     settings = Settings()
 
     with patch(
-        "github_wikidata_bot.sparql.cached_sparql_query",
+        "gitlab_wikidata_bot.sparql.cached_sparql_query",
         new_callable=AsyncMock,
         return_value=sparql_response,
     ):

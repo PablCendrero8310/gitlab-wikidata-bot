@@ -7,20 +7,15 @@ import textwrap
 import sentry_sdk
 from httpx import AsyncClient
 
-from github_wikidata_bot.github import Project, Release
-from github_wikidata_bot.project import GitHubRepo
-from github_wikidata_bot.redirects import RedirectDict
-from github_wikidata_bot.settings import Settings
-from github_wikidata_bot.version import SimpleSortableVersion
-from github_wikidata_bot.website import is_website_other_property
-from github_wikidata_bot.wikidata_api import (
-    Claim,
-    Item,
-    ItemValue,
-    WikibaseMonolingualText,
-    WikibaseTime,
-    WikidataClient,
-)
+from gitlab_wikidata_bot.gitlab import Project, Release
+from gitlab_wikidata_bot.project import GitlabRepo
+from gitlab_wikidata_bot.redirects import RedirectDict
+from gitlab_wikidata_bot.settings import Settings
+from gitlab_wikidata_bot.version import SimpleSortableVersion
+from gitlab_wikidata_bot.website import is_website_other_property
+from gitlab_wikidata_bot.wikidata_api import (Claim, Item, ItemValue,
+                                              WikibaseMonolingualText,
+                                              WikibaseTime, WikidataClient)
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +144,7 @@ async def update_website_and_license(
         assert isinstance(urls[0].value, str)
         url_raw = urls[0].value
         # Update the github repo if it was renamed.
-        repo = project.canonical_repo or GitHubRepo.from_url(url_raw)
+        repo = project.canonical_repo or GitlabRepo.from_url(url_raw)
         is_rename = (
             project.canonical_repo is not None
             and str(project.canonical_repo) != url_raw
@@ -223,7 +218,7 @@ async def update_wikidata(
     latest_version = stable_releases[-1].version
 
     existing_claims = item.claims.get(Property.software_version.value, [])
-    github_versions = [release.version for release in stable_releases]
+    gitlab_versions = [release.version for release in stable_releases]
     existing_preferred_ranks = [
         claim for claim in existing_claims if claim.rank == "preferred"
     ]
@@ -233,7 +228,7 @@ async def update_wikidata(
     )
 
     for claim in existing_preferred_ranks:
-        if claim.value not in github_versions:
+        if claim.value not in gitlab_versions:
             logger.warning(
                 f"A version which is not in the github page has a preferred rank: {claim.value}"
             )

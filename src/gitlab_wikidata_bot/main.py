@@ -13,25 +13,17 @@ from subprocess import CalledProcessError
 import sentry_sdk
 from httpx import AsyncClient, HTTPError, HTTPStatusError
 
-from github_wikidata_bot.github import (
-    GitHubClient,
-    Project,
-    RateLimitError,
-    analyse_release,
-    analyse_tag,
-    get_data_from_github,
-)
-from github_wikidata_bot.project import InvalidProject, WikidataProject
-from github_wikidata_bot.settings import Secrets, Settings
-from github_wikidata_bot.sparql import cached_projects_query, query_best_versions
-from github_wikidata_bot.version import SimpleSortableVersion
-from github_wikidata_bot.wikidata_api import (
-    APIError,
-    MaxLagError,
-    WikidataClient,
-    WikidataError,
-)
-from github_wikidata_bot.wikidata_update import update_wikidata
+from gitlab_wikidata_bot.gitlab import (GitlabClient, Project, RateLimitError,
+                                        analyse_release, analyse_tag,
+                                        get_data_from_gitlab)
+from gitlab_wikidata_bot.project import InvalidProject, WikidataProject
+from gitlab_wikidata_bot.settings import Secrets, Settings
+from gitlab_wikidata_bot.sparql import (cached_projects_query,
+                                        query_best_versions)
+from gitlab_wikidata_bot.version import SimpleSortableVersion
+from gitlab_wikidata_bot.wikidata_api import (APIError, MaxLagError,
+                                              WikidataClient, WikidataError)
+from gitlab_wikidata_bot.wikidata_update import update_wikidata
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +31,7 @@ logger = logging.getLogger(__name__)
 async def check_fast_path(
     project: WikidataProject,
     best_versions: dict[str, list[str]],
-    github_client: GitHubClient,
+    gitlab_client: GitlabClient,
 ) -> bool:
     """Check whether the latest GitHub release matches the latest version on wikidata, and if so,
     skip the expensive processing."""
@@ -53,7 +45,7 @@ async def check_fast_path(
         project_version = None
 
     try:
-        releases, _, _ = await github_client.fetch_json(
+        releases, _, _ = await gitlab_client.fetch_json(
             project.repo.api_releases() + "?per_page=1"
         )
         assert isinstance(releases, list)  # For the type checker
@@ -80,7 +72,7 @@ async def check_fast_path(
             return False
     else:
         try:
-            tags, _, _ = await github_client.fetch_json(project.repo.api_tags())
+            tags, _, _ = await gitlab_client.fetch_json(project.repo.api_tags())
             assert isinstance(tags, list)  # For the type checker
         except HTTPStatusError as e:
             # GitHub raises 404 if there are no tags, 409 for empty repos
@@ -97,7 +89,7 @@ async def check_fast_path(
                 logger.info(f"No fast path, fetch tags errored: {e}")
                 return False
         else:
-            project_info, _, _ = await github_client.fetch_json(project.repo.api_base())
+            project_info, _, _ = await gitlab_client.fetch_json(project.repo.api_base())
             assert isinstance(project_info, dict)  # For the type checker
             extracted_tags = [
                 analyse_tag(release, project_info, []) for release in tags
@@ -127,14 +119,14 @@ async def update_project(
     allow_stale: bool,
     settings: Settings,
     wikidata: WikidataClient,
-    github_client: GitHubClient,
+    gitlab_client: GitlabClient,
 ):
     try:
-        if await check_fast_path(project, best_versions, github_client):
+        if await check_fast_path(project, best_versions, gitlab_client):
             return
 
-        properties: Project = await get_data_from_github(
-            project, allow_stale, github_client, settings, wikidata.tags_over_releases
+        properties: Project = await get_data_from_gitlab(
+            project, allow_stale, gitlab_client, settings, wikidata.tags_over_releases
         )
     except HTTPStatusError as e:
         # TODO: Figure out what update wikidata should get when a project was deleted.
@@ -192,7 +184,7 @@ async def update_project_with_retries(
     allow_stale: bool,
     settings: Settings,
     wikidata: WikidataClient,
-    github_client: GitHubClient,
+    gitlab_client: GitlabClient,
 ):
     with sentry_sdk.start_transaction(name="Update project") as transaction:
         transaction.set_data("project", project.q_value_url)
@@ -208,7 +200,7 @@ async def update_project_with_retries(
                         allow_stale,
                         settings,
                         wikidata,
-                        github_client,
+                        gitlab_client,
                     ),
                     timeout=5 * 60,
                 )
@@ -281,7 +273,7 @@ def init_logging(quiet: bool) -> None:
                 "backupCount": 10,
             },
         },
-        "loggers": {"github_wikidata_bot": {"handlers": handlers, "level": "INFO"}},
+        "loggers": {"gitlab_wikidata_bot": {"handlers": handlers, "level": "INFO"}},
     }
 
     logging.config.dictConfig(conf)
@@ -316,7 +308,7 @@ async def run(
     allow_stale: bool,
     settings: Settings,
     wikidata: WikidataClient,
-    github_client: GitHubClient,
+    gitlab_client: GitlabClient,
 ):
     logger.info("Querying Projects")
     projects = await cached_projects_query(
@@ -332,7 +324,7 @@ async def run(
             f"## [{idx}/{len(projects)}] {project.label}: {project.q_value_url} {project.repo}"
         )
         await update_project_with_retries(
-            project, best_versions, allow_stale, settings, wikidata, github_client
+            project, best_versions, allow_stale, settings, wikidata, gitlab_client
         )
     logger.info("# Finished successfully")
 
@@ -369,7 +361,7 @@ async def main():
         ) as client:
             wikidata = WikidataClient(client, secrets, settings)
             await wikidata.connect(settings)
-            github_client = GitHubClient(secrets, client, settings)
+            gitlab_client = GitlabClient(secrets, client, settings)
 
             await run(
                 args.filter,
@@ -377,7 +369,7 @@ async def main():
                 args.allow_stale,
                 settings,
                 wikidata,
-                github_client,
+                gitlab_client,
             )
             logger.info(f"Made {wikidata.request_counter} wikidata requests")
     finally:

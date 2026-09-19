@@ -16,7 +16,7 @@ import httpx
 import sentry_sdk
 from httpx import AsyncClient
 
-from github_wikidata_bot.settings import Secrets, Settings, sparql_dir
+from gitlab_wikidata_bot.settings import Secrets, Settings, sparql_dir
 
 logger = logging.getLogger(__name__)
 

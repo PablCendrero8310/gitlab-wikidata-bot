@@ -6,11 +6,11 @@ import httpx
 import pytest
 from httpx import AsyncClient
 
-from github_wikidata_bot.github import GitHubClient, get_data_from_github
-from github_wikidata_bot.project import GitHubRepo, WikidataProject
-from github_wikidata_bot.settings import Secrets, Settings
-from github_wikidata_bot.wikidata_api import WikidataClient
-from github_wikidata_bot.wikidata_update import update_wikidata
+from gitlab_wikidata_bot.gitlab import GitlabClient, get_data_from_gitlab
+from gitlab_wikidata_bot.project import GitlabRepo, WikidataProject
+from gitlab_wikidata_bot.settings import Secrets, Settings
+from gitlab_wikidata_bot.wikidata_api import WikidataClient
+from gitlab_wikidata_bot.wikidata_update import update_wikidata
 
 
 def test_url_editing_with_fragment():
@@ -18,7 +18,7 @@ def test_url_editing_with_fragment():
         "https://github.com/data2health/contributor-role-ontology"
         "#relevant-publications-and-scholarly-products"
     )
-    actual = GitHubRepo.from_url(url).api_releases()
+    actual = GitlabRepo.from_url(url).api_releases()
     expected = (
         "https://api.github.com/repos/data2health/contributor-role-ontology/releases"
     )
@@ -27,7 +27,7 @@ def test_url_editing_with_fragment():
 
 def test_repo_normalization():
     url = "git://github.com/certbot/certbot.git"
-    actual = str(GitHubRepo.from_url(url))
+    actual = str(GitlabRepo.from_url(url))
     expected = "https://github.com/certbot/certbot"
     assert actual == expected
 
@@ -52,23 +52,23 @@ class SequentialTransport(httpx.AsyncBaseTransport):
         self.requests.append(request)
         expected_url, resp = self.responses[self._index]
         self._index += 1
-        assert str(request.url) == expected_url, (
-            f"Request #{self._index}: expected {expected_url}, got {request.url}"
-        )
+        assert (
+            str(request.url) == expected_url
+        ), f"Request #{self._index}: expected {expected_url}, got {request.url}"
         return resp
 
 
 @pytest.mark.anyio
 async def test_repo_rename_updates_wikidata(tmp_path, monkeypatch):
-    """End-to-end: GitHub reports perl6/nqp -> Raku/nqp rename, Wikidata P1324 is updated."""
-    monkeypatch.setattr("github_wikidata_bot.github.cache_root", lambda: tmp_path)
+    """End-to-end: Gitlab reports perl6/nqp -> Raku/nqp rename, Wikidata P1324 is updated."""
+    monkeypatch.setattr("gitlab_wikidata_bot.github.cache_root", lambda: tmp_path)
 
     # Responses in request order. httpx follows 301s automatically, so each
     # redirect is immediately followed by the response at the new URL.
     transport = SequentialTransport(
         [
             # get project info: perl6/nqp -> 301 -> /repositories/1342470
-            # (GitHub redirects to numeric ID URLs, not /repos/new-org/new-name)
+            # (Gitlab redirects to numeric ID URLs, not /repos/new-org/new-name)
             (
                 "https://api.github.com/repos/perl6/nqp",
                 _redirect("https://api.github.com/repositories/1342470"),
@@ -147,23 +147,23 @@ async def test_repo_rename_updates_wikidata(tmp_path, monkeypatch):
 
     settings = Settings()
     secrets = Secrets(
-        username="test", bot_name="test", password="test", github_oauth_token="fake"
+        username="test", bot_name="test", password="test", gitlab_oauth_token="fake"
     )
     async with AsyncClient(transport=transport, follow_redirects=True) as client:
-        github_client = GitHubClient(secrets, client, settings)
-        secrets = Secrets("bot", "bot", "secret", "secret_github_token", None)
+        gitlab_client = GitlabClient(secrets, client, settings)
+        secrets = Secrets("bot", "bot", "secret", "secret_gitlab_token", None)
         wikidata = WikidataClient(client, secrets, settings)
 
-        project = await get_data_from_github(
+        project = await get_data_from_gitlab(
             WikidataProject(
-                q_value="Q123", label="NQP", repo=GitHubRepo("perl6", "nqp")
+                q_value="Q123", label="NQP", repo=GitlabRepo("perl6", "nqp")
             ),
             allow_stale=False,
-            client=github_client,
+            client=gitlab_client,
             settings=settings,
             tags_over_releases=[],
         )
-        assert project.canonical_repo == GitHubRepo("Raku", "nqp")
+        assert project.canonical_repo == GitlabRepo("Raku", "nqp")
 
         await update_wikidata(project, settings, wikidata)
 

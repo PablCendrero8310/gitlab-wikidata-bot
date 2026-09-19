@@ -16,9 +16,9 @@ import sentry_sdk
 from httpx import AsyncClient, HTTPStatusError
 from pydantic import BaseModel
 
-from github_wikidata_bot.project import GitHubRepo, WikidataProject
-from github_wikidata_bot.settings import Secrets, Settings, cache_root
-from github_wikidata_bot.version import SimpleSortableVersion, extract_version
+from gitlab_wikidata_bot.project import GitlabRepo, WikidataProject
+from gitlab_wikidata_bot.settings import Secrets, Settings, cache_root
+from gitlab_wikidata_bot.version import SimpleSortableVersion, extract_version
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +30,14 @@ class RateLimitError(Exception):
         self.sleep = sleep
 
 
-class GitHubClient:
+class GitlabClient:
     auth_headers: dict[str, str]
     api_concurrency: Semaphore
     client: AsyncClient
     settings: Settings
 
     def __init__(self, secrets: Secrets, client: AsyncClient, settings: Settings):
-        self.auth_headers = {"Authorization": f"token {secrets.github_oauth_token}"}
+        self.auth_headers = {"Authorization": f"token {secrets.gitlab_oauth_token}"}
         self.api_concurrency = Semaphore(20)
         self.client = client
         self.settings = settings
@@ -61,14 +61,14 @@ class GitHubClient:
             if 500 <= response.status_code < 600 and attempt < 4:
                 backoff = 2**attempt
                 logger.warning(
-                    f"GitHub {response.status_code} for {url}, "
+                    f"Gitlab {response.status_code} for {url}, "
                     f"retrying after {backoff}s"
                 )
                 await asyncio.sleep(backoff)
                 continue
             break
 
-        # We stop before we hit the actual rate limit cause github doesn't seem to like it
+        # We stop before we hit the actual rate limit cause gitlab doesn't seem to like it
         # if we go to zero.
         total_limit = int(response.headers.get("x-ratelimit-limit", "0"))
         remaining_requests = int(response.headers.get("x-ratelimit-remaining", "0"))
@@ -84,7 +84,7 @@ class GitHubClient:
             raise RateLimitError(seconds_to_reset + 1)
 
         if response.status_code == 429:
-            # We've hit github's abuse limits, wait 5min and try again
+            # We've hit gitlab's abuse limits, wait 5min and try again
             raise RateLimitError(5 * 60)
 
         if response.status_code == 304:
@@ -128,11 +128,11 @@ class Project:
     license: str | None
     retrieved: datetime.datetime
     # The repo from the response url, to track renames (through redirects).
-    canonical_repo: GitHubRepo | None = None
+    canonical_repo: GitlabRepo | None = None
 
 
 async def fetch_cached(
-    api_url: str, cache_path: Path, client: GitHubClient, allow_stale: bool
+    api_url: str, cache_path: Path, client: GitlabClient, allow_stale: bool
 ) -> tuple[Any, str]:
     """Fetch JSON with caching. Returns `(payload, response_url)`."""
     cache_path.parent.mkdir(exist_ok=True, parents=True)
@@ -180,7 +180,7 @@ class CachedResponse(BaseModel):
 
 @sentry_sdk.trace
 async def get_releases(
-    repo: GitHubRepo, repo_cache_root: Path, client: GitHubClient, allow_stale: bool
+    repo: GitlabRepo, repo_cache_root: Path, client: GitlabClient, allow_stale: bool
 ) -> list[dict[str, Any]]:
     """Gets all pages of the release/tag information"""
     per_page = 100
@@ -188,7 +188,7 @@ async def get_releases(
     releases_cache = repo_cache_root.joinpath(f"releases-{per_page}")
     releases_cache.mkdir(exist_ok=True, parents=True)
 
-    # GitHub API returns at most 1000 results (100 per page * 10 pages).
+    # Gitlab API returns at most 1000 results (100 per page * 10 pages).
     max_pages = 1000 // per_page
     all_releases: list[dict[str, Any]] = []
     for page_number in range(1, max_pages + 1):
@@ -201,7 +201,7 @@ async def get_releases(
             if allow_stale:
                 logger.info(f"Cache unchecked: {page_url}")
                 all_releases += cached.payload
-                # Assumption: github returns 100 entries per page when we request it.
+                # Assumption: gitlab returns 100 entries per page when we request it.
                 if len(cached.payload) < per_page:
                     break
                 else:
@@ -216,7 +216,7 @@ async def get_releases(
                 all_releases += cached.payload
                 if page_number == 1:
                     allow_stale = True
-                # Assumption: github returns 100 entries per page when we request it.
+                # Assumption: gitlab returns 100 entries per page when we request it.
                 if len(cached.payload) < per_page:
                     break
                 else:
@@ -241,7 +241,7 @@ async def get_releases(
         )
         page_cache.write_text(cached_release.model_dump_json())
 
-        # Assumption: github returns 100 entries per page when we request it.
+        # Assumption: gitlab returns 100 entries per page when we request it.
         if len(page_releases) < per_page:
             break
 
@@ -253,7 +253,7 @@ def analyse_release(
 ) -> Release | None:
     """
     Heuristics to find the version number and according metadata for a release
-    marked with github's release-feature
+    marked with gitlab's release-feature
     """
     match_tag_name = extract_version(release.get("tag_name") or "", project_name)
     match_name = extract_version(release.get("name") or "", project_name)
@@ -298,7 +298,7 @@ def analyse_tag(
 ) -> ReleaseTag | None:
     """
     Heuristics to find the version number and according meta-data for a release
-    not marked with github's release-feature but tagged with git.
+    not marked with gitlab's release-feature but tagged with git.
 
     Compared to analyse_release this needs an extra API-call which makes this
     function considerably slower.
@@ -355,20 +355,20 @@ async def get_date_from_tag_details(
 
 
 @sentry_sdk.trace
-async def get_data_from_github(
+async def get_data_from_gitlab(
     project: WikidataProject,
     allow_stale: bool,
-    client: GitHubClient,
+    client: GitlabClient,
     settings: Settings,
     # This is data from wikidata
     tags_over_releases: list[str],
 ) -> Project:
     """
-    Retrieve the following data from github:
+    Retrieve the following data from gitlab:
      - website / homepage
      - version number string and release date of all stable releases
 
-    Version marked with github's own release-function are received primarily.
+    Version marked with gitlab's own release-function are received primarily.
     Only if a project has none releases marked that way this function will fall
     back to parsing the tags of the project.
 
@@ -395,9 +395,9 @@ async def get_data_from_github(
         spdx_id = None
 
     # Detect repo renames. We need to use the response body as the redirect goes to
-    # `https://api.github.com/repositories/<id>`.
+    # `https://api.gitlab.com/repositories/<id>`.
     if response_url != api_url:
-        canonical_repo = GitHubRepo(
+        canonical_repo = GitlabRepo(
             project_info["owner"]["login"], project_info["name"]
         )
         logger.info(f"Repo renamed: {project.repo} -> {canonical_repo}")
@@ -430,7 +430,7 @@ async def get_data_from_github(
                 project.repo.api_tags(), cache_file, client, allow_stale
             )
         except HTTPStatusError as e:
-            # GitHub raises 404 if there are no tags, 409 for empty repos
+            # Gitlab raises 404 if there are no tags, 409 for empty repos
             if e.response.status_code in (404, 409):
                 tags = []
             else:

@@ -8,9 +8,9 @@ from collections import defaultdict
 import httpx
 import sentry_sdk
 
-from github_wikidata_bot.project import WikidataProject
-from github_wikidata_bot.settings import Settings, cache_root, sparql_dir
-from github_wikidata_bot.wikidata_api import ServerError, WikidataClient
+from gitlab_wikidata_bot.project import WikidataProject
+from gitlab_wikidata_bot.settings import Settings, cache_root, sparql_dir
+from gitlab_wikidata_bot.wikidata_api import ServerError, WikidataClient
 
 logger = logging.getLogger(__name__)
 

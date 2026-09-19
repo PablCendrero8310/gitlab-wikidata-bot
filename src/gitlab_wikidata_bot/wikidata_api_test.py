@@ -8,20 +8,12 @@ import httpx
 import pytest
 from httpx import AsyncClient
 
-from github_wikidata_bot.settings import Secrets, Settings
-from github_wikidata_bot.wikidata_api import (
-    APIError,
-    Claim,
-    Item,
-    ItemValue,
-    MaxLagError,
-    ServerError,
-    WikibaseMonolingualText,
-    WikibaseTime,
-    WikidataClient,
-    WikidataError,
-    parse_claim,
-)
+from gitlab_wikidata_bot.settings import Secrets, Settings
+from gitlab_wikidata_bot.wikidata_api import (APIError, Claim, Item, ItemValue,
+                                              MaxLagError, ServerError,
+                                              WikibaseMonolingualText,
+                                              WikibaseTime, WikidataClient,
+                                              WikidataError, parse_claim)
 
 API = "https://www.wikidata.org/w/api.php"
 
@@ -76,7 +68,7 @@ async def _make_session(transport: MockTransport) -> AsyncIterator[WikidataClien
         headers={"User-Agent": settings.user_agent},
         transport=transport,
     ) as client:
-        secrets = Secrets("bot", "bot", "secret", "secret_github_token", None)
+        secrets = Secrets("bot", "bot", "secret", "secret_gitlab_token", None)
         yield WikidataClient(client, secrets, settings)
 
 
@@ -580,7 +572,7 @@ async def test_badtoken_retry():
     )
     async with _make_session(transport) as session:
         session.secrets = Secrets(
-            username="U", bot_name="B", password="P", github_oauth_token=""
+            username="U", bot_name="B", password="P", gitlab_oauth_token=""
         )
         claim = Claim(property="P348", value="1.0.0")
         await session.save_claims("Q42", [claim])
@@ -612,7 +604,7 @@ async def test_assertbotfailed_relogin():
     )
     async with _make_session(transport) as session:
         session.secrets = Secrets(
-            username="U", bot_name="B", password="P", github_oauth_token=""
+            username="U", bot_name="B", password="P", gitlab_oauth_token=""
         )
         claim = Claim(property="P348", value="1.0.0")
         await session.save_claims("Q42", [claim])

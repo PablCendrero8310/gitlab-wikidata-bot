@@ -7,10 +7,10 @@ from asyncio import Semaphore
 import tqdm
 from httpx import AsyncClient
 
-from github_wikidata_bot.github import GitHubClient
-from github_wikidata_bot.settings import Secrets, Settings
-from github_wikidata_bot.sparql import cached_projects_query
-from github_wikidata_bot.wikidata_api import WikidataClient
+from gitlab_wikidata_bot.gitlab import GitlabClient
+from gitlab_wikidata_bot.settings import Secrets, Settings
+from gitlab_wikidata_bot.sparql import cached_projects_query
+from gitlab_wikidata_bot.wikidata_api import WikidataClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +24,13 @@ async def main():
     ) as client:
         wikidata = WikidataClient(client, secrets, settings)
         await wikidata.connect(settings)
-        github_client = GitHubClient(secrets, client, settings)
+        gitlab_client = GitlabClient(secrets, client, settings)
         projects = await cached_projects_query(False, wikidata, settings, None)
         semaphore = Semaphore(50)
 
         async def query(url: str, wikidata_id: str) -> tuple[str, str, int]:
             async with semaphore:
-                response = await client.head(url, headers=github_client.auth_headers)
+                response = await client.head(url, headers=gitlab_client.auth_headers)
             return url, wikidata_id, response.status_code
 
         tasks = [

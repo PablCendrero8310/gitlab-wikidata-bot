@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from shlex import quote
 from typing import Self
 
 from yarl import URL
@@ -18,7 +19,7 @@ class WikidataProject:
     q_value: str
     # The wikidata label, english preferred.
     label: str
-    repo: GitlabRepo
+    repo: GitLabRepo
 
     @property
     def q_value_url(self) -> str:
@@ -34,16 +35,20 @@ class WikidataProject:
         return cls(
             q_value=q_value,
             label=project["projectLabel"],
-            repo=GitlabRepo.from_url(project["repo"]),
+            repo=GitLabRepo.from_url(project["repo"]),
         )
 
 
 @dataclass(frozen=True)
-class GitlabRepo:
+class GitLabRepo:
     """The URL to a gitlab repository."""
 
-    org: str
-    project: str
+    instance: str
+    path: str
+
+    @property
+    def levels(self) -> list[str]:
+        return self.path.split("/")
 
     @classmethod
     def from_url(cls, url: str) -> Self:
@@ -57,18 +62,17 @@ class GitlabRepo:
         # https://www.wikidata.org/wiki/User_talk:Konstin#How_to_run_/_how_often_is_it_run?
         parsed = parsed.with_path(parsed.path.rstrip("/"))
 
-        if parsed.host != "gitlab.com" or parsed.path.count("/") != 2:
+        if not parsed.host or "/" not in parsed.path:
             raise InvalidProject(f"Invalid repo URL: {url}")
         # Ignore the trailing slash at the beginning of the path.
-        _, org, project = parsed.path.split("/")
-        return cls(org, project)
+        return cls(parsed.host, parsed.path.removeprefix("/"))
 
     def __str__(self) -> str:
-        return f"https://gitlab.com/{self.org}/{self.project}"
+        return f"https://{self.instance}/{self.path}"
 
     def api_base(self) -> str:
         """The base gitlab api URL for the repository."""
-        return f"https://api.gitlab.com/repos/{self.org}/{self.project}"
+        return f"https://{self.instance}/api/v4/projects/{quote(self.path)}"
 
     def api_releases(self) -> str:
         """The gitlab api URL for the releases of the repository."""
@@ -76,4 +80,4 @@ class GitlabRepo:
 
     def api_tags(self) -> str:
         """The gitlab api URL for the tags of the repository."""
-        return self.api_base() + "/git/refs/tags"
+        return self.api_base() + "/repository/tags"

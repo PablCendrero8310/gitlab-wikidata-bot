@@ -7,7 +7,7 @@ import pytest
 from httpx import AsyncClient
 
 from gitlab_wikidata_bot.gitlab import GitlabClient, get_data_from_gitlab
-from gitlab_wikidata_bot.project import GitlabRepo, WikidataProject
+from gitlab_wikidata_bot.project import GitLabRepo, WikidataProject
 from gitlab_wikidata_bot.settings import Secrets, Settings
 from gitlab_wikidata_bot.wikidata_api import WikidataClient
 from gitlab_wikidata_bot.wikidata_update import update_wikidata
@@ -18,7 +18,7 @@ def test_url_editing_with_fragment():
         "https://github.com/data2health/contributor-role-ontology"
         "#relevant-publications-and-scholarly-products"
     )
-    actual = GitlabRepo.from_url(url).api_releases()
+    actual = GitLabRepo.from_url(url).api_releases()
     expected = (
         "https://api.github.com/repos/data2health/contributor-role-ontology/releases"
     )
@@ -27,7 +27,7 @@ def test_url_editing_with_fragment():
 
 def test_repo_normalization():
     url = "git://github.com/certbot/certbot.git"
-    actual = str(GitlabRepo.from_url(url))
+    actual = str(GitLabRepo.from_url(url))
     expected = "https://github.com/certbot/certbot"
     assert actual == expected
 
@@ -156,14 +156,14 @@ async def test_repo_rename_updates_wikidata(tmp_path, monkeypatch):
 
         project = await get_data_from_gitlab(
             WikidataProject(
-                q_value="Q123", label="NQP", repo=GitlabRepo("perl6", "nqp")
+                q_value="Q123", label="NQP", repo=GitLabRepo("perl6", "nqp")
             ),
             allow_stale=False,
             client=gitlab_client,
             settings=settings,
             tags_over_releases=[],
         )
-        assert project.canonical_repo == GitlabRepo("Raku", "nqp")
+        assert project.canonical_repo == GitLabRepo("Raku", "nqp")
 
         await update_wikidata(project, settings, wikidata)
 

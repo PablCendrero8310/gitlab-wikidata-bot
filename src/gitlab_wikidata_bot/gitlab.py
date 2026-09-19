@@ -16,7 +16,7 @@ import sentry_sdk
 from httpx import AsyncClient, HTTPStatusError
 from pydantic import BaseModel
 
-from gitlab_wikidata_bot.project import GitlabRepo, WikidataProject
+from gitlab_wikidata_bot.project import GitLabRepo, WikidataProject
 from gitlab_wikidata_bot.settings import Secrets, Settings, cache_root
 from gitlab_wikidata_bot.version import SimpleSortableVersion, extract_version
 
@@ -128,7 +128,7 @@ class Project:
     license: str | None
     retrieved: datetime.datetime
     # The repo from the response url, to track renames (through redirects).
-    canonical_repo: GitlabRepo | None = None
+    canonical_repo: GitLabRepo | None = None
 
 
 async def fetch_cached(
@@ -180,7 +180,7 @@ class CachedResponse(BaseModel):
 
 @sentry_sdk.trace
 async def get_releases(
-    repo: GitlabRepo, repo_cache_root: Path, client: GitlabClient, allow_stale: bool
+    repo: GitLabRepo, repo_cache_root: Path, client: GitlabClient, allow_stale: bool
 ) -> list[dict[str, Any]]:
     """Gets all pages of the release/tag information"""
     per_page = 100
@@ -379,7 +379,7 @@ async def get_data_from_gitlab(
     retrieved = datetime.datetime.now(datetime.UTC)
 
     repo_cache_root = (
-        cache_root().joinpath(project.repo.org).joinpath(project.repo.project)
+        cache_root().joinpath(project.repo.instance).joinpath(project.repo.path)
     )
 
     # General project information
@@ -397,7 +397,7 @@ async def get_data_from_gitlab(
     # Detect repo renames. We need to use the response body as the redirect goes to
     # `https://api.gitlab.com/repositories/<id>`.
     if response_url != api_url:
-        canonical_repo = GitlabRepo(
+        canonical_repo = GitLabRepo(
             project_info["owner"]["login"], project_info["name"]
         )
         logger.info(f"Repo renamed: {project.repo} -> {canonical_repo}")

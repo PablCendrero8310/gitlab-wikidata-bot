@@ -8,7 +8,7 @@ import sentry_sdk
 from httpx import AsyncClient
 
 from gitlab_wikidata_bot.gitlab import Project, Release
-from gitlab_wikidata_bot.project import GitlabRepo
+from gitlab_wikidata_bot.project import GitLabRepo
 from gitlab_wikidata_bot.redirects import RedirectDict
 from gitlab_wikidata_bot.settings import Settings
 from gitlab_wikidata_bot.version import SimpleSortableVersion
@@ -144,7 +144,7 @@ async def update_website_and_license(
         assert isinstance(urls[0].value, str)
         url_raw = urls[0].value
         # Update the github repo if it was renamed.
-        repo = project.canonical_repo or GitlabRepo.from_url(url_raw)
+        repo = project.canonical_repo or GitLabRepo.from_url(url_raw)
         is_rename = (
             project.canonical_repo is not None
             and str(project.canonical_repo) != url_raw

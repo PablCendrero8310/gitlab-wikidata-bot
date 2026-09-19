@@ -38,7 +38,7 @@ async def debug_version_handling(
         project_info, _, _ = await github.fetch_json(project.repo.api_base())
         assert project_info is not None  # For the type checker
         repo_cache_root = (
-            cache_root().joinpath(project.repo.org).joinpath(project.repo.project)
+            cache_root().joinpath(project.repo.instance).joinpath(project.repo.path)
         )
         gitlab_releases = await get_releases(
             project.repo, repo_cache_root, github, False

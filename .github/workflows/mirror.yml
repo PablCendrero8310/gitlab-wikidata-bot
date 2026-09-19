@@ -1,0 +1,21 @@
+name: Mirror to Wikimedia GitLab
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "**"
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Mirror repository
+        run: |
+          git clone --mirror "https://github.com/${{ github.repository }}.git"
+          cd "$(basename "${{ github.repository }}.git")"
+
+          git push --mirror \
+            "https://${{ secrets.GITLAB_USERNAME }}:${{ secrets.GITLAB_TOKEN }}@gitlab.wikimedia.org/pcendrer/gitlab-wikidata-bot.git"

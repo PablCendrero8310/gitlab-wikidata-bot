@@ -52,7 +52,7 @@ class GitLabRepo:
 
     @classmethod
     def from_url(cls, url: str) -> Self:
-        """Parse from a gitlab URL in the form `https://github.com/python/cpython`."""
+        """Parse from a gitlab URL in the form `https://<instance>/<path>`."""
         parsed = URL(url).with_scheme("https").with_fragment(None)
         if parsed.path.endswith(".git"):
             parsed = parsed.with_path(parsed.path[:-4])
